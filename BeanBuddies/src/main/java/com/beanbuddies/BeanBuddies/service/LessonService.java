@@ -1,16 +1,15 @@
-// src/main/java/com/beanbuddies/BeanBuddies/service/LessonService.java
 package com.beanbuddies.BeanBuddies.service;
 
 import com.beanbuddies.BeanBuddies.dto.LessonCreateRequest;
 import com.beanbuddies.BeanBuddies.dto.LessonResponseDto; 
 import com.beanbuddies.BeanBuddies.model.Course;
 import com.beanbuddies.BeanBuddies.model.Lesson;
-import com.beanbuddies.BeanBuddies.model.Role;
 import com.beanbuddies.BeanBuddies.model.User;
 import com.beanbuddies.BeanBuddies.repository.CourseRepository;
 import com.beanbuddies.BeanBuddies.repository.LessonCompletionRepository; 
 import com.beanbuddies.BeanBuddies.repository.LessonRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict; // <-- IMPORT
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.GrantedAuthority; 
 import org.springframework.stereotype.Service;
@@ -42,16 +41,15 @@ public class LessonService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not enrolled in this course");
         }
 
-        // --- EIKHANE UPDATE KORA HOYECHE ---
-        // Ekhon notun "Native Query" method-ta call kora hocche
         boolean isCompleted = completionRepository.existsByStudentIdAndLessonIdNative(currentUser.getId(), lesson.getId());
 
         return new LessonResponseDto(lesson, isCompleted);
     }
 
     @Transactional
+    // Lesson add korle 'course_details' cache clear kora hocche
+    @CacheEvict(value = "course_details", key = "#courseId") 
     public Lesson addLessonToCourse(LessonCreateRequest request, Long courseId, User currentUser) {
-        // ... (ei method-e kono change nai)
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
 
@@ -70,8 +68,9 @@ public class LessonService {
     }
 
     @Transactional
+    // Lesson delete korle sob cache clear (safety er jonno)
+    @CacheEvict(value = "course_details", allEntries = true) 
     public void deleteLesson(Long lessonId, User currentUser) {
-        // ... (ei method-e kono change nai)
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lesson not found"));
 

@@ -1,4 +1,3 @@
-// src/main/java/com/beanbuddies/BeanBuddies/controller/CourseController.java
 package com.beanbuddies.BeanBuddies.controller;
 
 import com.beanbuddies.BeanBuddies.dto.*;
@@ -7,8 +6,8 @@ import com.beanbuddies.BeanBuddies.model.Role;
 import com.beanbuddies.BeanBuddies.model.User;
 import com.beanbuddies.BeanBuddies.service.CommentService;
 import com.beanbuddies.BeanBuddies.service.CourseService; 
-import com.beanbuddies.BeanBuddies.repository.CourseRepository; 
-import com.beanbuddies.BeanBuddies.repository.LessonCompletionRepository; // <-- NOTUN IMPORT
+// CourseRepository remove kora hoyeche logic clean korar jonno
+import com.beanbuddies.BeanBuddies.repository.LessonCompletionRepository; 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Set; // <-- NOTUN IMPORT
+import java.util.Set; 
 
 @RestController
 @RequestMapping("/api/v1/courses")
@@ -26,34 +25,31 @@ public class CourseController {
 
     private final CourseService courseService;
     private final CommentService commentService;
-    private final CourseRepository courseRepository; 
-    private final LessonCompletionRepository completionRepository; // <-- NOTUN FIELD
+    // CourseRepository remove kora hoyeche, service use hobe
+    private final LessonCompletionRepository completionRepository; 
 
     @GetMapping("/public/all")
     public ResponseEntity<List<CourseResponseDto>> getAllCourses() {
-        List<Course> courses = courseService.getAllCourses();
+        // Eita ekhon cached method call korbe
+        List<Course> courses = courseService.getAllCourses(); 
+        
         List<CourseResponseDto> courseDtos = courses.stream()
-                .map(CourseResponseDto::new) // Eita ekhon progress dekhabe na
+                .map(CourseResponseDto::new) 
                 .toList();
         return ResponseEntity.ok(courseDtos);
     }
 
-    /**
-     * --- EI ENDPOINT-TA PROTECTED KORA HOYECHE ---
-     * Ekhon ei endpoint-ta user-er completed lesson-gulo return korbe
-     */
-    @GetMapping("/{id}") // "/public" path theke remove kora hoyeche
+    @GetMapping("/{id}")
     public ResponseEntity<CourseDetailDto> getCourseById(
             @PathVariable Long id,
-            @AuthenticationPrincipal User user // <-- User object neya hocche
+            @AuthenticationPrincipal User user 
     ) {
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
+        // --- UPDATE: Use Service instead of Repository for Caching ---
+        Course course = courseService.getCourseById(id); // <-- CACHED CALL
 
-        // User-er completed lesson ID-gulo ber kora
+        // Progress data user-specific, tai eita cache hobe na (DB hit hobe, but fast index use hobe)
         Set<Long> completedLessonIds = completionRepository.findCompletedLessonIdsByStudentAndCourse(user, course);
         
-        // Notun constructor call kora hocche
         return ResponseEntity.ok(new CourseDetailDto(course, completedLessonIds));
     }
     

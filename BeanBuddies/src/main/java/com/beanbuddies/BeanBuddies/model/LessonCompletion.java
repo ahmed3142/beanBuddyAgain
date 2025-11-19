@@ -1,4 +1,3 @@
-// src/main/java/com/beanbuddies/BeanBuddies/model/LessonCompletion.java
 package com.beanbuddies.BeanBuddies.model;
 
 import jakarta.persistence.*;
@@ -12,8 +11,11 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "lesson_completion",
     uniqueConstraints = {
-        // Ekjon user ekta lesson ekbar-i complete korte parbe
         @UniqueConstraint(columnNames = {"student_id", "lesson_id"})
+    },
+    indexes = {
+        @Index(name = "idx_completion_student", columnList = "student_id"),
+        @Index(name = "idx_completion_lesson", columnList = "lesson_id")
     }
 )
 public class LessonCompletion {

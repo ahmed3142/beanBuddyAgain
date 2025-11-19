@@ -1,13 +1,14 @@
 // app/dashboard/page.js
 "use client";
 
-import { useEffect, useState } from 'react';
+import useSWR from 'swr'; // <-- IMPORT ADDED (Make sure to run: npm install swr)
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { getMyDashboard } from '../lib/api';
 import Link from 'next/link';
+import { useEffect } from 'react';
 
-// --- Notun Progress Bar Component ---
+// --- Progress Bar Component ---
 const ProgressBar = ({ completed, total }) => {
   const percentage = total > 0 ? (completed / total) * 100 : 0;
   return (
@@ -19,45 +20,39 @@ const ProgressBar = ({ completed, total }) => {
   );
 };
 
+// SWR fetcher function
+const fetcher = ([url, token]) => getMyDashboard(token);
+
 export default function DashboardPage() {
   const { session, profile, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [dashboard, setDashboard] = useState(null); 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+  // Redirect if not logged in
   useEffect(() => {
-    if (authLoading) return;
-    if (!session) {
+    if (!authLoading && !session) {
       router.push('/login');
-      return;
     }
-
-    const fetchDashboard = async () => {
-      try {
-        setLoading(true);
-        const data = await getMyDashboard(session.access_token);
-        setDashboard(data); 
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboard();
-
   }, [session, authLoading, router]);
 
-  if (loading || authLoading) {
+  // --- SWR Implementation ---
+  // Only fetch when we have a token
+  const shouldFetch = session?.access_token ? ['/users/me/dashboard', session.access_token] : null;
+
+  const { data: dashboard, error, isLoading } = useSWR(shouldFetch, fetcher, {
+    revalidateOnFocus: false, // Don't re-fetch when window gets focus
+    dedupingInterval: 60000,  // Cache for 1 minute
+  });
+
+  if (authLoading || (isLoading && !dashboard)) {
     return <div style={{textAlign: 'center', padding: '40px'}}>Loading your dashboard...</div>;
   }
 
   if (error) {
-    return <div style={{textAlign: 'center', padding: '40px', color: 'red'}}>Error: {error}</div>;
+    return <div style={{textAlign: 'center', padding: '40px', color: 'red'}}>Error loading dashboard.</div>;
   }
   
+  if (!dashboard) return null; // Waiting for redirect
+
   const isInstructor = profile?.role === 'ROLE_INSTRUCTOR' || profile?.role === 'ROLE_ADMIN';
   const hasCreatedCourses = dashboard?.createdCourses?.length > 0;
   const hasEnrolledCourses = dashboard?.enrolledCourses?.length > 0;
@@ -66,7 +61,7 @@ export default function DashboardPage() {
     <div>
       <h1 className="page-title">My Dashboard</h1>
 
-      {/* === INSTRUCTOR-ER SECTION === */}
+      {/* === INSTRUCTOR SECTION === */}
       {isInstructor && (
         <div className="card">
           <h2 style={{marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '1rem'}}>My Created Courses</h2>
@@ -95,7 +90,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* === STUDENT-ER SECTION (PROGRESS BAR SHOHO) === */}
+      {/* === STUDENT SECTION === */}
       <div className="card">
         <h2 style={{marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '1rem'}}>My Enrolled Courses</h2>
         {hasEnrolledCourses ? (
@@ -110,7 +105,7 @@ export default function DashboardPage() {
                   <h2 className="course-card-title">{course.title}</h2>
                   <p className="course-card-desc">{course.description}</p>
                   
-                  {/* --- PROGRESS BAR EKHANE ADD KORA HOYECHE --- */}
+                  {/* Progress Bar */}
                   <ProgressBar completed={course.completedLessons} total={course.totalLessons} />
                   <small style={{color: '#6b7280', marginTop: '4px', display: 'block'}}>
                     {course.completedLessons} / {course.totalLessons} lessons
