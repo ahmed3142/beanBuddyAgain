@@ -24,6 +24,9 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
+    
+    // --- NOTIFICATION SERVICE ---
+    private final NotificationService notificationService;
 
     @Cacheable(value = "public_courses")
     public List<Course> getAllCourses() {
@@ -41,7 +44,6 @@ public class CourseService {
     }
 
     @Transactional
-    // Course add korle instructor-er list ar public list clear hobe
     @CacheEvict(value = {"public_courses", "instructor_courses"}, allEntries = true) 
     public Course createCourse(CourseCreateRequest request, User instructor) {
 
@@ -62,19 +64,27 @@ public class CourseService {
 
         enrollmentRepository.save(instructorEnrollment);
 
+        // --- GLOBAL NOTIFICATION TRIGGER ---
+        // Notun course create hole sobai notification pabe
+        try {
+            notificationService.sendGlobalNotification(
+                "📢 New Course Alert: '" + newCourse.getTitle() + "' by " + instructor.getUsername()
+            );
+        } catch (Exception e) {
+            System.err.println("Global notification failed: " + e.getMessage());
+        }
+
         return savedCourse;
     }
 
     @Transactional
-    // Delete korle sob dhoroner course related cache clear
     @CacheEvict(value = {"public_courses", "course_details", "instructor_courses"}, allEntries = true) 
     public void deleteCourse(Long courseId) {
         courseRepository.deleteById(courseId);
     }
     
-    // --- INSTRUCTOR COURSES CACHE ---
     @Transactional(readOnly = true)
-    @Cacheable(value = "instructor_courses", key = "#username") // Cache added
+    @Cacheable(value = "instructor_courses", key = "#username")
     public List<CourseResponseDto> getCoursesByInstructor(String username) {
         List<Course> courses = courseRepository.findByInstructorUsername(username);
         return courses.stream()

@@ -1,7 +1,9 @@
 // app/layout.js
 import './globals.css'
 import { AuthProvider } from './context/AuthContext';
+import { WebSocketProvider } from './context/WebSocketContext'; // <-- IMPORT ADDED
 import Header from './components/Header';
+import NotificationToast from './components/NotificationToast'; // <-- IMPORT ADDED
 
 export const metadata = {
   title: 'BeanBuddies',
@@ -11,14 +13,20 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      {/* <body> tag is styled by globals.css */}
       <body>
         <AuthProvider>
-          <Header />
-          {/* <main> tag is styled by globals.css */}
-          <main>
-            {children}
-          </main>
+          {/* WebSocket Provider AuthProvider-er bhitore thaka lagbe */}
+          <WebSocketProvider> 
+            <Header />
+            
+            <main>
+              {children}
+            </main>
+
+            {/* Global Notification Container */}
+            <NotificationToast /> 
+            
+          </WebSocketProvider>
         </AuthProvider>
       </body>
     </html>

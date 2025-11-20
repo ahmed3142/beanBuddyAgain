@@ -1,4 +1,3 @@
-// src/main/java/com/beanbuddies/BeanBuddies/config/SecurityConfig.java
 package com.beanbuddies.BeanBuddies.config;
 
 import com.beanbuddies.BeanBuddies.service.UserService;
@@ -19,15 +18,15 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity 
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -37,58 +36,39 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
+            .authorizeHttpRequests(auth -> auth
+                // Public Endpoints
+                .requestMatchers("/api/v1/courses/public/**").permitAll()
+                .requestMatchers("/api/v1/users/public/**").permitAll()
+                .requestMatchers("/api/v1/payment/ipn").permitAll() // SSLCommerz IPN
+                .requestMatchers("/api/v1/payment/success", "/api/v1/payment/fail", "/api/v1/payment/cancel").permitAll()
                 
-                .csrf(AbstractHttpConfigurer::disable)
+                // --- WEBSOCKET ENDPOINT ALLOWED HERE ---
+                .requestMatchers("/ws/**").permitAll() 
                 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                HttpMethod.GET, 
-                                "/api/v1/courses/public/all",
-                                "/api/v1/courses/public/{id}",
-                                "/api/v1/courses/public/by/{username}"
-                        ).permitAll()
-                        .requestMatchers(
-                                "/api/v1/public/**",
-                                "/v3/api-docs/**",   
-                                "/swagger-ui/**",
-                                "/api/v1/users/public/{username}" 
-                        ).permitAll()
-                        
-                        .requestMatchers("/api/v1/payment/**").permitAll() 
-
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        
-                        .requestMatchers(HttpMethod.GET, "/api/v1/enrollments/is-enrolled/{courseId}").authenticated()
-                        
-                        .requestMatchers(HttpMethod.POST, "/api/v1/lessons/{lessonId}/complete").authenticated()
-
-                        .anyRequest().authenticated()
-                )
+                // Swagger / OpenAPI (Optional)
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
                 
-                .sessionManagement(session -> 
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                // Others require authentication
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-    
+
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        configuration.setAllowedOrigins(List.of("http://localhost:3000")); 
-        configuration.addAllowedOriginPattern("https://*.vercel.app");
-        configuration.addAllowedOriginPattern("https://*.ngrok-free.dev");
-
+        // Frontend URL (Localhost & Ngrok)
+        configuration.setAllowedOriginPatterns(List.of("*")); // Allow all for dev
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        
-        // --- EI LINE-TI UPDATE KORA HOYECHE ---
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "ngrok-skip-browser-warning"));
-        // --- END OF CHANGE ---
-
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

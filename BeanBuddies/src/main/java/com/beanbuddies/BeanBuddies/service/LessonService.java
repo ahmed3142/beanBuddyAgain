@@ -1,20 +1,24 @@
 package com.beanbuddies.BeanBuddies.service;
 
 import com.beanbuddies.BeanBuddies.dto.LessonCreateRequest;
-import com.beanbuddies.BeanBuddies.dto.LessonResponseDto; 
+import com.beanbuddies.BeanBuddies.dto.LessonResponseDto;
 import com.beanbuddies.BeanBuddies.model.Course;
+import com.beanbuddies.BeanBuddies.model.Enrollment;
 import com.beanbuddies.BeanBuddies.model.Lesson;
 import com.beanbuddies.BeanBuddies.model.User;
 import com.beanbuddies.BeanBuddies.repository.CourseRepository;
-import com.beanbuddies.BeanBuddies.repository.LessonCompletionRepository; 
+import com.beanbuddies.BeanBuddies.repository.EnrollmentRepository;
+import com.beanbuddies.BeanBuddies.repository.LessonCompletionRepository;
 import com.beanbuddies.BeanBuddies.repository.LessonRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict; // <-- IMPORT
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.GrantedAuthority; 
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +26,11 @@ public class LessonService {
 
     private final CourseRepository courseRepository;
     private final LessonRepository lessonRepository;
-    private final LessonCompletionRepository completionRepository; 
+    private final LessonCompletionRepository completionRepository;
+    
+    // --- REPOSITORY & SERVICE INJECTION ---
+    private final EnrollmentRepository enrollmentRepository; 
+    private final NotificationService notificationService; 
 
     @Transactional(readOnly = true)
     public LessonResponseDto getLessonDetails(Long lessonId, User currentUser) {
@@ -47,7 +55,6 @@ public class LessonService {
     }
 
     @Transactional
-    // Lesson add korle 'course_details' cache clear kora hocche
     @CacheEvict(value = "course_details", key = "#courseId") 
     public Lesson addLessonToCourse(LessonCreateRequest request, Long courseId, User currentUser) {
         Course course = courseRepository.findById(courseId)
@@ -63,12 +70,35 @@ public class LessonService {
         newLesson.setTextContent(request.getTextContent());
 
         course.addLesson(newLesson);
+        Lesson savedLesson = lessonRepository.save(newLesson);
 
-        return lessonRepository.save(newLesson);
+        // --- TARGETED NOTIFICATION LOGIC ---
+        String notificationMsg = "📚 New Lesson: '" + request.getTitle() + "' added to course '" + course.getTitle() + "'";
+
+        // 1. Notify Instructor (Confirmation)
+        if (course.getInstructor() != null) {
+             notificationService.sendPrivateNotification(course.getInstructor().getUsername(), "✅ You added a new lesson: " + request.getTitle());
+        }
+
+        // 2. Notify Enrolled Students
+        List<Enrollment> enrollments = enrollmentRepository.findByCourse(course);
+        for (Enrollment enrollment : enrollments) {
+            User student = enrollment.getStudent();
+            
+            // Instructor ke skip koro (jodi se bhule enroll kore thake to avoid duplicate notification)
+            if (!student.getId().equals(course.getInstructor().getId())) {
+                try {
+                    notificationService.sendPrivateNotification(student.getUsername(), notificationMsg);
+                } catch (Exception e) {
+                    System.err.println("Failed to notify student " + student.getUsername() + ": " + e.getMessage());
+                }
+            }
+        }
+
+        return savedLesson;
     }
 
     @Transactional
-    // Lesson delete korle sob cache clear (safety er jonno)
     @CacheEvict(value = "course_details", allEntries = true) 
     public void deleteLesson(Long lessonId, User currentUser) {
         Lesson lesson = lessonRepository.findById(lessonId)
