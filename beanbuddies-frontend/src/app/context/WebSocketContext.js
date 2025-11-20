@@ -11,11 +11,23 @@ export const WebSocketProvider = ({ children }) => {
   const { session } = useAuth();
   const [stompClient, setStompClient] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [lastChatMessage, setLastChatMessage] = useState(null); // Chat Feature er jonno
 
-  // --- 1. MISSING NOTIFICATIONS FETCH ---
+  // --- DYNAMIC URL LOGIC ---
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Apnar Ngrok URL (application.properties theke neya)
+  const PROD_URL = 'https://georgiann-unbribing-elderly.ngrok-free.dev'; 
+  const DEV_URL = 'http://localhost:8081';
+
+  // Vercel e thakle Ngrok, Local e thakle Localhost use korbe
+  const BACKEND_BASE_URL = isProduction ? PROD_URL : DEV_URL;
+  // ------------------------
+
+  // 1. Fetch missing notifications
   const fetchUnreadNotifications = async (token) => {
     try {
-      const res = await fetch('http://localhost:8081/api/v1/notifications/unread', {
+      const res = await fetch(`${BACKEND_BASE_URL}/api/v1/notifications/unread`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'ngrok-skip-browser-warning': 'true'
@@ -23,7 +35,6 @@ export const WebSocketProvider = ({ children }) => {
       });
       if (res.ok) {
         const data = await res.json();
-        // Database theke ana notification gulo dekhano
         data.forEach(n => showNotification(n.message));
       }
     } catch (error) {
@@ -40,29 +51,43 @@ export const WebSocketProvider = ({ children }) => {
       return;
     }
 
-    // Connect hoar agei purono gulo niye asho
     fetchUnreadNotifications(session.access_token);
 
-    const SOCKET_URL = 'http://localhost:8081/ws';
+    // 2. WebSocket URL setup
+    const SOCKET_URL = `${BACKEND_BASE_URL}/ws`;
 
     const client = new Client({
       webSocketFactory: () => new SockJS(SOCKET_URL),
       connectHeaders: {
         Authorization: `Bearer ${session.access_token}`,
+        'ngrok-skip-browser-warning': 'true',
       },
       debug: (str) => console.log('STOMP: ' + str),
       reconnectDelay: 5000,
       
       onConnect: () => {
-        console.log('✅ Connected to WebSocket');
+        console.log('✅ Connected to WebSocket at', SOCKET_URL);
 
+        // Public Notifications
         client.subscribe('/topic/public-notifications', (message) => {
            showNotification(message.body);
         });
 
+        // Private Notifications
         client.subscribe('/user/queue/notifications', (message) => {
            showNotification(message.body);
         });
+
+        // Chat Messages
+        client.subscribe('/user/queue/messages', (message) => {
+          console.log("📩 Chat Message Received:", message.body);
+          setLastChatMessage(JSON.parse(message.body));
+        });
+      },
+      
+      onStompError: (frame) => {
+        console.error('❌ Broker reported error: ' + frame.headers['message']);
+        console.error('Additional details: ' + frame.body);
       },
     });
 
@@ -78,14 +103,13 @@ export const WebSocketProvider = ({ children }) => {
     const newNotif = { id: Date.now() + Math.random(), message };
     setNotifications((prev) => [...prev, newNotif]);
 
-    // 8 Second por remove (Enrollment message porte time lage)
     setTimeout(() => {
       setNotifications((prev) => prev.filter(n => n.id !== newNotif.id));
     }, 8000);
   };
 
   return (
-    <WebSocketContext.Provider value={{ stompClient, notifications }}>
+    <WebSocketContext.Provider value={{ stompClient, notifications, lastChatMessage }}>
       {children}
     </WebSocketContext.Provider>
   );
