@@ -8,8 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ChatMessageDto {
-    private String senderId;   // Username or Email
-    private String recipientId; // Username or Email (Instructor)
-    private String content;
-    private String type; // "CHAT", "JOIN", "LEAVE"
+    private String senderId;    // Backend set korbe (Security context theke)
+    private String recipientId; // Frontend pathabe
+    private String content;     // Frontend pathabe
 }

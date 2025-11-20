@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from './AuthContext';
@@ -8,23 +8,28 @@ import { useAuth } from './AuthContext';
 const WebSocketContext = createContext(null);
 
 export const WebSocketProvider = ({ children }) => {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  
   const [stompClient, setStompClient] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  const [lastChatMessage, setLastChatMessage] = useState(null); // Chat Feature er jonno
+  const [lastChatMessage, setLastChatMessage] = useState(null);
+  
+  // Refs to track state inside callback closures
+  const activeChatUserRef = useRef(null); 
+  const profileRef = useRef(null);
+
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+
+  const setActiveChatUser = (user) => {
+    activeChatUserRef.current = user;
+  };
 
   // --- DYNAMIC URL LOGIC ---
   const isProduction = process.env.NODE_ENV === 'production';
-  
-  // Apnar Ngrok URL (application.properties theke neya)
   const PROD_URL = 'https://georgiann-unbribing-elderly.ngrok-free.dev'; 
   const DEV_URL = 'http://localhost:8081';
-
-  // Vercel e thakle Ngrok, Local e thakle Localhost use korbe
   const BACKEND_BASE_URL = isProduction ? PROD_URL : DEV_URL;
-  // ------------------------
 
-  // 1. Fetch missing notifications
   const fetchUnreadNotifications = async (token) => {
     try {
       const res = await fetch(`${BACKEND_BASE_URL}/api/v1/notifications/unread`, {
@@ -53,7 +58,6 @@ export const WebSocketProvider = ({ children }) => {
 
     fetchUnreadNotifications(session.access_token);
 
-    // 2. WebSocket URL setup
     const SOCKET_URL = `${BACKEND_BASE_URL}/ws`;
 
     const client = new Client({
@@ -62,32 +66,31 @@ export const WebSocketProvider = ({ children }) => {
         Authorization: `Bearer ${session.access_token}`,
         'ngrok-skip-browser-warning': 'true',
       },
-      debug: (str) => console.log('STOMP: ' + str),
       reconnectDelay: 5000,
       
       onConnect: () => {
-        console.log('✅ Connected to WebSocket at', SOCKET_URL);
+        console.log('✅ Connected to WebSocket');
 
-        // Public Notifications
-        client.subscribe('/topic/public-notifications', (message) => {
-           showNotification(message.body);
-        });
+        client.subscribe('/topic/public-notifications', (msg) => showNotification(msg.body));
+        client.subscribe('/user/queue/notifications', (msg) => showNotification(msg.body));
 
-        // Private Notifications
-        client.subscribe('/user/queue/notifications', (message) => {
-           showNotification(message.body);
-        });
-
-        // Chat Messages
         client.subscribe('/user/queue/messages', (message) => {
-          console.log("📩 Chat Message Received:", message.body);
-          setLastChatMessage(JSON.parse(message.body));
+          const msgData = JSON.parse(message.body);
+          setLastChatMessage(msgData);
+
+          // --- SMART NOTIFICATION LOGIC ---
+          const myUsername = profileRef.current?.username;
+          const openChatUser = activeChatUserRef.current;
+
+          // Check: Not from me AND Not from currently open chat
+          if (msgData.senderId !== myUsername && msgData.senderId !== openChatUser) {
+             showNotification(`New message from ${msgData.senderId}`);
+          }
         });
       },
       
       onStompError: (frame) => {
-        console.error('❌ Broker reported error: ' + frame.headers['message']);
-        console.error('Additional details: ' + frame.body);
+        console.error('Broker error: ' + frame.headers['message']);
       },
     });
 
@@ -102,14 +105,18 @@ export const WebSocketProvider = ({ children }) => {
   const showNotification = (message) => {
     const newNotif = { id: Date.now() + Math.random(), message };
     setNotifications((prev) => [...prev, newNotif]);
-
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter(n => n.id !== newNotif.id));
-    }, 8000);
+    setTimeout(() => setNotifications((prev) => prev.filter(n => n.id !== newNotif.id)), 8000);
   };
 
   return (
-    <WebSocketContext.Provider value={{ stompClient, notifications, lastChatMessage }}>
+    <WebSocketContext.Provider value={{ 
+      stompClient, 
+      notifications, 
+      lastChatMessage, 
+      activeChatUser: activeChatUserRef.current,
+      setActiveChatUser,
+      showNotification 
+    }}>
       {children}
     </WebSocketContext.Provider>
   );

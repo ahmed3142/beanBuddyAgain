@@ -1,37 +1,40 @@
-// app/course/[id]/lesson/[lessonId]/page.js
-"use client"; 
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { getLessonDetails, markLessonComplete } from '../../../../lib/api';
 import Comments from '../../../../components/Comments';
 import Link from 'next/link';
-import { useParams } from 'next/navigation'; 
 
 export default function LessonPage() {
-  const { session, loading: authLoading } = useAuth();
+  const { id, lessonId } = useParams();
+  const { session } = useAuth();
+  const router = useRouter();
+
   const [lesson, setLesson] = useState(null);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  
   const [isCompleted, setIsCompleted] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
 
-  // --- EIKHANE "BACK TO COURSE" ERROR-TA FIX KORA HOYECHE ---
-  const params = useParams();
-  const courseId = params.id; // <-- 'courseId' er bodole 'id' (apnar folder name onujayi)
-  const lessonId = params.lessonId; // URL theke [lessonId]
+  // --- YOUTUBE URL PARSER HELPER ---
+  // Raw link theke Video ID ber kore Embed URL banabe
+  const getEmbedUrl = (url) => {
+    if (!url) return null;
+    
+    // Regular expression for YouTube ID
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!session) {
-      setError("You must be logged in to view this lesson.");
-      setLoading(false);
-      return;
+    if (match && match[2].length === 11) {
+      return `https://www.youtube.com/embed/${match[2]}`;
     }
     
-    // Ekhon ar 'undefined' hobe na
-    if (!lessonId || !courseId) return; 
+    // Jodi match na kore, tobe original URL-tai return korbo (fallback)
+    return url;
+  };
+
+  useEffect(() => {
+    if (!session || !lessonId) return;
 
     const fetchLesson = async () => {
       try {
@@ -39,136 +42,96 @@ export default function LessonPage() {
         const data = await getLessonDetails(session.access_token, lessonId);
         setLesson(data);
         setIsCompleted(data.isCompleted); 
-        setError('');
       } catch (err) {
-        setError(err.message); 
+        console.error(err);
+        // Error hole course page-e ferot pathano jete pare
+        // router.push(`/course/${id}`);
       } finally {
         setLoading(false);
       }
     };
 
     fetchLesson();
-  }, [session, authLoading, lessonId, courseId]); 
-  
-  const handleMarkComplete = async () => {
-    if (isCompleting) return;
-    
+  }, [lessonId, session, id, router]);
+
+  const handleComplete = async () => {
     try {
-      setIsCompleting(true);
       await markLessonComplete(session.access_token, lessonId);
-      setIsCompleted(true); 
+      setIsCompleted(true);
     } catch (err) {
-      setError("Failed to mark as complete. " + err.message);
-    } finally {
-      setIsCompleting(false);
+      alert("Failed to mark complete: " + err.message);
     }
   };
 
+  if (loading) return <div className="flex justify-center p-10"><span className="spinner" style={{borderLeftColor:'#1877f2'}}></span></div>;
+  if (!lesson) return <div className="card p-10 text-center">Lesson not found.</div>;
 
-  if (loading || authLoading) {
-    return <div style={{textAlign: 'center', padding: '40px'}}>Loading lesson...</div>;
-  }
-
-  // Error page ekhon "Back to Course" link-e shothik 'courseId' pabe
-  if (error && !lesson) { 
-    return (
-      <div style={{textAlign: 'center', padding: '40px'}}>
-        <h1 className="page-title" style={{color: 'red'}}>Access Denied</h1>
-        <p style={{fontSize: '1.2rem'}}>{error}</p>
-        <a href={`/course/${courseId}`}>&larr; Back to Course</a>
-      </div>
-    );
-  }
-
-  if (!lesson) {
-    return <div style={{textAlign: 'center', padding: '40px'}}>Lesson not found.</div>;
-  }
-  
-  const videoEmbedUrl = getYouTubeEmbedUrl(lesson.videoUrl);
+  const embedUrl = getEmbedUrl(lesson.videoUrl);
 
   return (
-    <div>
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          {/* Ekhaneo "courseId" shothikbhabe kaj korbe */}
-          <a href={`/course/${courseId}`}>&larr; Back to Course</a>
-          <h1 className="page-title" style={{marginBottom: '0.5rem'}}>{lesson.title}</h1>
-        </div>
-        <div>
-          <button 
-            className="btn btn-primary"
-            onClick={handleMarkComplete}
-            disabled={isCompleted || isCompleting}
-            style={isCompleted ? {backgroundColor: '#16a34a', cursor: 'default'} : {}}
-          >
-            {isCompleted ? '✓ Completed' : (isCompleting ? 'Saving...' : 'Mark as Complete')}
-          </button>
-        </div>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '100px' }}>
+      
+      {/* Navigation Breadcrumb */}
+      <div className="animate-blob-up" style={{ marginBottom: '20px' }}>
+        <Link href={`/course/${id}`} className="btn" style={{ backgroundColor: '#e4e6eb', color: '#050505', gap: '5px', textDecoration: 'none' }}>
+          ⬅ Back to Course
+        </Link>
       </div>
 
-      {error && <p style={{color: 'red'}}>{error}</p>}
-
-      <div className="card">
-        {videoEmbedUrl ? (
-          <div style={{marginBottom: '1.5rem', position: 'relative', paddingBottom: '56.25%', height: 0}}>
-            <iframe 
-              src={videoEmbedUrl}
+      {/* Video Player Section (Responsive 16:9) */}
+      <div className="card animate-blob-up" style={{ padding: '0', overflow: 'hidden', background: '#000', border: 'none' }}>
+        {embedUrl ? (
+          <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+            <iframe
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+              src={embedUrl}
               title={lesson.title}
               frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}}
             ></iframe>
           </div>
-        ) : lesson.videoUrl ? (
-          <div style={{padding: '1rem', backgroundColor: '#fff0f0', color: '#c00', border: '1px solid #fcc', borderRadius: '4px', marginBottom: '1.5rem'}}>
-            Could not load video. Invalid YouTube URL provided.
-          </div>
-        ) : null} 
-        
-        {lesson.textContent && (
-          <div 
-            className="lesson-text-content" 
-            style={{lineHeight: '1.6'}}
-            dangerouslySetInnerHTML={{ __html: lesson.textContent.replace(/\n/g, '<br />') }} 
-          />
+        ) : (
+            <div style={{ padding: '100px', textAlign: 'center', color: '#fff' }}>
+                <p>No video content available for this lesson.</p>
+            </div>
         )}
       </div>
 
-      <Comments lessonId={lesson.id} />
+      {/* Content & Actions */}
+      <div className="card animate-blob-up delay-100" style={{marginTop: '20px'}}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+            <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#050505' }}>{lesson.title}</h1>
+            
+            <button 
+                onClick={handleComplete}
+                disabled={isCompleted}
+                className="btn"
+                style={{ 
+                    minWidth: '160px',
+                    backgroundColor: isCompleted ? '#42b72a' : '#1877f2',
+                    color: '#fff',
+                    cursor: isCompleted ? 'default' : 'pointer'
+                }}
+            >
+                {isCompleted ? '✅ Completed' : 'Mark as Complete'}
+            </button>
+        </div>
+
+        <div style={{ fontSize: '1.1rem', lineHeight: '1.8', color: '#1c1e21' }}>
+            {lesson.textContent ? (
+                <p style={{ whiteSpace: 'pre-wrap' }}>{lesson.textContent}</p>
+            ) : (
+                <p style={{ fontStyle: 'italic', color: '#65676b' }}>No text content provided.</p>
+            )}
+        </div>
+      </div>
+
+      {/* Discussion/Comments Section */}
+      <div className="animate-blob-up delay-200">
+        <Comments lessonId={lessonId} />
+      </div>
 
     </div>
   );
 }
-
-// YouTube URL fix korar function
-const getYouTubeEmbedUrl = (url) => {
-  if (!url) return '';
-  let videoId = '';
-  try {
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
-    }
-    
-    const urlObj = new URL(url);
-    if (urlObj.hostname === 'youtu.be') {
-      videoId = urlObj.pathname.substring(1); 
-    } else if (urlObj.hostname.includes('youtube.com')) {
-      if (urlObj.pathname.startsWith('/shorts/')) {
-        videoId = urlObj.pathname.split('/shorts/')[1];
-      } else if (urlObj.pathname.startsWith('/watch')) {
-        videoId = urlObj.searchParams.get('v');
-      } else if (urlObj.pathname.startsWith('/embed/')) {
-        return url; 
-      }
-    }
-    if (videoId) {
-      videoId = videoId.split('?')[0]; 
-      return `https://www.youtube.com/embed/${videoId}`;
-    }
-  } catch (e) {
-    console.error("Invalid video URL", url, e);
-    return ''; 
-  }
-  return ''; 
-};

@@ -2,64 +2,54 @@ package com.beanbuddies.BeanBuddies.controller;
 
 import com.beanbuddies.BeanBuddies.dto.ChatMessageDto;
 import com.beanbuddies.BeanBuddies.model.ChatMessage;
-import com.beanbuddies.BeanBuddies.repository.ChatMessageRepository;
+import com.beanbuddies.BeanBuddies.service.ChatService; // Service added
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequiredArgsConstructor
 public class ChatController {
 
-    private final SimpMessagingTemplate messagingTemplate;
-    private final ChatMessageRepository chatMessageRepository;
+    private final ChatService chatService; // Using Service
 
-    // WebSocket Message Handling
+    // --- WebSocket Endpoint ---
     @MessageMapping("/chat")
     public void processMessage(@Payload ChatMessageDto chatMessageDto, Principal principal) {
-        String senderUsername = principal.getName();
-        chatMessageDto.setSenderId(senderUsername);
-
-        // 1. Save to Database
-        ChatMessage message = new ChatMessage();
-        message.setSenderId(senderUsername);
-        message.setRecipientId(chatMessageDto.getRecipientId());
-        message.setContent(chatMessageDto.getContent());
-        chatMessageRepository.save(message);
-
-        // 2. Send to Recipient (Real-time)
-        messagingTemplate.convertAndSendToUser(
-                chatMessageDto.getRecipientId(),
-                "/queue/messages",
-                chatMessageDto
-        );
-        
-        // 3. Send back to Sender (To show in their own UI immediately)
-         messagingTemplate.convertAndSendToUser(
-                senderUsername,
-                "/queue/messages",
-                chatMessageDto
-        );
+        chatService.processAndSendMessage(chatMessageDto, principal.getName());
     }
 
-    // History Loading Endpoint (REST API)
+    // --- REST API Endpoints ---
+    
     @GetMapping("/api/v1/chat/history/{otherUser}")
     @ResponseBody
-    public ResponseEntity<List<ChatMessage>> getChatHistory(
+    public ResponseEntity<Map<String, Object>> getChatHistory(
             @PathVariable String otherUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
             Principal principal
     ) {
-        List<ChatMessage> history = chatMessageRepository.findConversation(principal.getName(), otherUser);
-        return ResponseEntity.ok(history);
+        return ResponseEntity.ok(chatService.getChatHistory(principal.getName(), otherUser, page, size));
+    }
+
+    @GetMapping("/api/v1/chat/inbox")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getInbox(Principal principal) {
+        return ResponseEntity.ok(chatService.getInbox(principal.getName()));
+    }
+
+    @PostMapping("/api/v1/chat/read/{otherUser}")
+    @ResponseBody
+    public ResponseEntity<Void> markAsRead(@PathVariable String otherUser, Principal principal) {
+        // Mark messages FROM 'otherUser' TO 'me' as read
+        chatService.markAsRead(otherUser, principal.getName());
+        return ResponseEntity.ok().build();
     }
 }

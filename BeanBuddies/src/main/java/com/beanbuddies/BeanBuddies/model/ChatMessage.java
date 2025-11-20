@@ -16,13 +16,16 @@ public class ChatMessage {
     private Long id;
 
     @Column(nullable = false)
-    private String senderId; // Username store korbo
+    private String senderId; // Username
 
     @Column(nullable = false)
-    private String recipientId; // Username store korbo
+    private String recipientId; // Username
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1000)
     private String content;
+
+    @Column(nullable = false)
+    private boolean isRead = false; 
 
     @Column(nullable = false)
     private LocalDateTime timestamp;

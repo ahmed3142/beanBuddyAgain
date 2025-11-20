@@ -11,7 +11,7 @@ export default function NotificationToast() {
     <div style={{
       position: 'fixed',
       bottom: '20px',
-      right: '20px',
+      left: '20px', // <-- MOVED TO BOTTOM LEFT
       zIndex: 9999,
       display: 'flex',
       flexDirection: 'column',
@@ -27,14 +27,17 @@ export default function NotificationToast() {
             borderRadius: '8px',
             boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
             animation: 'fadeIn 0.3s ease-in-out',
-            minWidth: '250px'
+            minWidth: '250px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
           }}
         >
-          🔔 {notif.message}
+          <span style={{fontSize: '1.2rem'}}>🔔</span> 
+          {notif.message}
         </div>
       ))}
       
-      {/* Simple Fade In Animation */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }

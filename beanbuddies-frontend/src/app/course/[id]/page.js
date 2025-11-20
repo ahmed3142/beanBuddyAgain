@@ -1,100 +1,164 @@
-// app/course/[id]/page.js
-"use client"; // <-- SERVER COMPONENT THEKE CLIENT COMPONENT KORA HOYECHE
+"use client";
 
-import { useEffect, useState } from 'react'; // <-- NOTUN IMPORT
-import { useAuth } from '../../context/AuthContext'; // <-- NOTUN IMPORT
-import { useParams } from 'next/navigation'; // <-- NOTUN IMPORT
-import { getCourseDetails } from '../../lib/api'; // <-- "getPublicCourseDetails" er bodole
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { useAuth } from '../../context/AuthContext';
+import { getCourseDetails, checkEnrollmentStatus } from '../../lib/api'; 
+import LessonManager from '../../components/LessonManager';
 import EnrollButton from '../../components/EnrollButton';
-import Link from 'next/link'; 
-import LessonManager from '../../components/LessonManager'; 
-import Comments from '../../components/Comments'; 
+import Comments from '../../components/Comments';
+import ChatWindow from '../../components/ChatWindow'; 
+import InboxList from '../../components/InboxList';
 
-export default function CourseDetailPage() { 
-  
-  const { session, loading: authLoading } = useAuth();
-  const params = useParams();
-  const { id: courseId } = params; // "id"-take "courseId" name e rename kora
-  
+export default function CoursePage() {
+  const { id } = useParams();
+  const { session, profile } = useAuth();
   const [course, setCourse] = useState(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  
+  // --- CHAT STATES ---
+  const [showStudentChat, setShowStudentChat] = useState(false); // For Students
+  const [showInstructorInbox, setShowInstructorInbox] = useState(false); // For Instructor (Popup List)
+  const [instructorChatUser, setInstructorChatUser] = useState(null); // For Instructor (Active Chat Window)
 
   useEffect(() => {
-    if (authLoading) return; // Auth load howa porjonto wait
-    if (!session) {
-      setError("You must be logged in to view this page.");
-      setLoading(false);
-      return;
-    }
-    
-    if (!courseId) return; // params load howa porjonto wait
+    if (!id) return;
 
     const fetchCourse = async () => {
       try {
-        setLoading(true);
-        // Notun protected function-take call kora hocche
-        const courseData = await getCourseDetails(session.access_token, courseId);
-        setCourse(courseData);
+        const token = session?.access_token;
+        const data = await getCourseDetails(token, id);
+        setCourse(data);
+        
+        if (token) {
+           const status = await checkEnrollmentStatus(token, id);
+           setIsEnrolled(status.isEnrolled);
+        }
       } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+        console.error(err);
       }
     };
-    
+
     fetchCourse();
-  }, [session, authLoading, courseId]);
+  }, [id, session]);
 
+  if (!course) return <div className="flex justify-center p-10"><span className="spinner" style={{borderLeftColor:'#1877f2'}}></span></div>;
 
-  if (loading || authLoading) {
-    return <div style={{textAlign: 'center', padding: '40px'}}>Loading course...</div>;
-  }
+  const isInstructor = profile?.username === course.instructor?.username;
+  const instructorUsername = course.instructor?.username;
 
-  if (error) {
-    return <div style={{textAlign: 'center', padding: '40px', color: 'red'}}>Error: {error}</div>;
-  }
-
-  if (!course) {
-    return <div style={{textAlign: 'center', padding: '40px'}}>Course not found.</div>;
-  }
+  // --- HANDLER FOR INSTRUCTOR INBOX ---
+  const handleInboxSelect = (studentUsername) => {
+    setInstructorChatUser(studentUsername); // Active chat set koro
+    setShowInstructorInbox(false); // Inbox list bondho kore dao (clean UI er jonno)
+  };
 
   return (
-    <div>
-      {/* Course Header */}
-      <div className="course-detail-header">
-        <h1>{course.title}</h1>
-        <p>{course.description}</p>
-        <div className="course-detail-meta">
-          <span className="course-detail-instructor">
-            {course.instructor ? (
-              <Link href={`/profile/${course.instructor.username}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                By {course.instructor.username}
-              </Link>
-            ) : (
-              'By Unknown Instructor'
+    <div style={{ maxWidth: '1100px', margin: '0 auto', paddingBottom: '100px' }}>
+      
+      {/* Hero Section */}
+      <div className="card animate-blob-up" style={{ borderTop: '5px solid #1877f2' }}>
+        <div style={{display: 'flex', justifyContent: 'space-between'}}>
+            <div>
+                <h1 style={{fontSize: '2.5rem', fontWeight: '800', margin: '0 0 10px 0'}}>{course.title}</h1>
+                <p style={{fontSize: '1.1rem', color: '#65676b'}}>{course.description}</p>
+            </div>
+            <div style={{fontSize: '2rem', fontWeight: 'bold', color: '#42b72a'}}>${course.price}</div>
+        </div>
+
+        <div style={{marginTop: '20px'}}>
+            {!isInstructor && !isEnrolled && <EnrollButton courseId={id} />}
+            
+            {isEnrolled && !isInstructor && (
+                <div style={{padding: '10px', background: '#e7f3ff', color: '#1877f2', borderRadius: '8px', display: 'inline-block'}}>
+                    ✅ You are enrolled in this course.
+                </div>
             )}
-          </span>
-          <span className="course-detail-price">${course.price}</span>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="course-detail-grid">
-        
-        {/* LessonManager ekhon "initialCourse" data-ta pabe */}
-        <LessonManager initialCourse={course} />
-
-        {/* Right Side: Enroll Card */}
-        <div>
-          <div className="enroll-card">
-            <h3>Start Learning</h3>
-            <EnrollButton courseId={course.id} />
-          </div>
-        </div>
+      {/* Lessons */}
+      <div className="card animate-blob-up delay-100">
+         <LessonManager initialCourse={course} />
       </div>
 
-      <Comments courseId={course.id} />
+      {/* Comments */}
+      <div className="animate-blob-up delay-200">
+        <Comments courseId={id} />
+      </div>
+
+      {/* --- FLOATING ACTION BUTTONS (Bottom Right) --- */}
+      
+      {/* 1. STUDENT VIEW: Chat with Instructor */}
+      {isEnrolled && !isInstructor && instructorUsername && (
+        <div style={{position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999}}>
+            <button 
+                onClick={() => setShowStudentChat(!showStudentChat)}
+                style={{
+                    width: '60px', height: '60px', borderRadius: '50%', 
+                    backgroundColor: '#0084ff', color: 'white', border: 'none', 
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.3)', cursor: 'pointer',
+                    fontSize: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+            >
+                💬
+            </button>
+        </div>
+      )}
+
+      {/* 2. INSTRUCTOR VIEW: Inbox Button */}
+      {isInstructor && (
+        <div style={{position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999}}>
+             {/* Inbox Popup List (Above the button) */}
+             {showInstructorInbox && (
+                <div className="animate-blob-up" style={{
+                    position: 'absolute', bottom: '70px', right: '0', 
+                    width: '300px', backgroundColor: 'white', 
+                    borderRadius: '12px', boxShadow: '0 5px 20px rgba(0,0,0,0.2)',
+                    overflow: 'hidden', border: '1px solid #ddd'
+                }}>
+                    <div style={{padding: '12px', background: '#0084ff', color: 'white', fontWeight: 'bold', fontSize:'15px'}}>
+                        Student Messages
+                    </div>
+                    
+                    {/* --- HERE IS THE FIX: Passing the function --- */}
+                    <InboxList onSelectUser={handleInboxSelect} />
+                </div>
+             )}
+
+             {/* Main Trigger Button */}
+             <button 
+                onClick={() => setShowInstructorInbox(!showInstructorInbox)}
+                style={{
+                    width: '60px', height: '60px', borderRadius: '50%', 
+                    backgroundColor: '#0084ff', color: 'white', border: 'none', 
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.3)', cursor: 'pointer',
+                    fontSize: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+            >
+                {showInstructorInbox ? '✕' : '📥'}
+            </button>
+        </div>
+      )}
+
+      {/* --- CHAT WINDOWS (Fixed Position) --- */}
+
+      {/* A. Student's Chat Window */}
+      {showStudentChat && instructorUsername && (
+        <ChatWindow 
+          otherUser={instructorUsername} 
+          onClose={() => setShowStudentChat(false)} 
+        />
+      )}
+
+      {/* B. Instructor's Chat Window (Driven by state from InboxList) */}
+      {instructorChatUser && (
+        <ChatWindow 
+          otherUser={instructorChatUser} 
+          onClose={() => setInstructorChatUser(null)} 
+        />
+      )}
+
     </div>
   );
 }
