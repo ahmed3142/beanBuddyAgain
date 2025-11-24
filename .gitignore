@@ -1,0 +1,13 @@
+# Node
+**/node_modules/
+# Java build
+**/target/
+# Next.js
+**/.next/
+# IntelliJ
+.idea/
+# Logs
+*.log
+# Environment / secrets
+*.properties
+.env*
