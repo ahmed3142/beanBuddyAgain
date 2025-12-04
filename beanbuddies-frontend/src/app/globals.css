@@ -1,0 +1,248 @@
+/* app/globals.css */
+
+/* Reset and Basic Styles */
+body {
+  background-color: #f0f2f5; /* Facebook-like light gray */
+  color: #1c1e21; /* Dark text */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem; 
+}
+
+a {
+  color: #1877f2; /* Facebook Blue */
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- BLOB UP ANIMATION --- */
+@keyframes blobUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  70% {
+    transform: translateY(-10px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-blob-up {
+  animation: blobUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  opacity: 0; /* Start hidden */
+}
+
+/* Delay classes for staggering effect */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+
+
+/* --- Header --- */
+.header {
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.8rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-logo {
+  font-size: 1.75rem; 
+  font-weight: 800;
+  color: #1877f2;
+  letter-spacing: -0.5px;
+}
+
+.header-links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem; 
+}
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1.2rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+.btn-primary {
+  background-color: #1877f2;
+  color: #ffffff;
+}
+.btn-primary:hover {
+  background-color: #166fe5;
+  transform: translateY(-1px);
+}
+.btn-danger {
+  background-color: #e4e6eb;
+  color: #050505;
+}
+.btn-danger:hover {
+  background-color: #d8dadf;
+}
+.btn-success {
+  background-color: #42b72a;
+  color: white;
+}
+.btn-success:hover {
+  background-color: #36a420;
+}
+.btn-full-width {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 1rem;
+}
+.btn:disabled {
+  background-color: #bcc0c4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- Cards --- */
+.card {
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #dddfe2;
+}
+
+/* --- Course Grid --- */
+.course-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.course-card {
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid #dddfe2;
+}
+.course-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+.course-card-content {
+  padding: 1.5rem;
+}
+.course-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: #050505;
+}
+.course-card-desc {
+  color: #65676b;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.course-card-footer {
+  padding: 1rem 1.5rem;
+  background-color: #f7f8fa;
+  border-top: 1px solid #dddfe2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.course-card-price {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1877f2;
+}
+.course-card-instructor {
+  font-size: 0.9rem;
+  color: #65676b;
+  font-weight: 500;
+}
+
+/* --- Lesson List Item --- */
+.lesson-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+  margin-bottom: 0.75rem;
+}
+.lesson-item:hover {
+  background-color: #f2f4f7;
+}
+.lesson-item-link {
+  text-decoration: none;
+  color: inherit;
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+}
+.lesson-index {
+  background: #e7f3ff;
+  color: #1877f2;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-right: 1rem;
+}
+.lesson-completed {
+  border-left: 4px solid #42b72a;
+}
+
+/* --- Spinner --- */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-left-color: #ffffff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
