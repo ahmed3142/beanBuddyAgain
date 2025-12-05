@@ -6,7 +6,7 @@ const getRedirectOrigin = (url) => {
     return url.origin;
   }
 
-  return process.env.NEXT_PUBLIC_PROD_URL || 'https://bean-buddy.vercel.app';
+  return process.env.NEXT_PUBLIC_PROD_URL || 'https://beanbuddy.onrender.com';
 };
 
 // SSLCommerz theke asha POST request handle korar jonno
