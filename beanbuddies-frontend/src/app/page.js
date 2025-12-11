@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getPublicCourses } from "./lib/api";
 
 export default function HomePage() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -37,8 +39,7 @@ export default function HomePage() {
             margin: 0,
             fontSize: "2.1rem",
             fontWeight: 800,
-            background:
-              "linear-gradient(120deg,#38bdf8,#a855f7,#22c55e)",
+            background: "linear-gradient(120deg,#38bdf8,#a855f7,#22c55e)",
             WebkitBackgroundClip: "text",
             color: "transparent",
             letterSpacing: "-0.03em",
@@ -68,10 +69,7 @@ export default function HomePage() {
             gap: "0.75rem",
           }}
         >
-          <span
-            className="spinner"
-            style={{ width: 24, height: 24 }}
-          ></span>
+          <span className="spinner" style={{ width: 24, height: 24 }}></span>
           <span style={{ color: "var(--text-muted)" }}>
             Loading courses...
           </span>
@@ -117,20 +115,19 @@ export default function HomePage() {
             </div>
           ) : (
             courses.map((course, index) => (
-              <Link
+              <div
                 key={course.id}
-                href={`/course/${course.id}`}
                 className="course-card"
                 style={{
                   textDecoration: "none",
                   color: "inherit",
                   animationDelay: `${0.03 * index}s`,
+                  cursor: "pointer",
                 }}
+                onClick={() => router.push(`/course/${course.id}`)}
               >
                 <div className="course-card-content">
-                  <h2 className="course-card-title">
-                    {course.title}
-                  </h2>
+                  <h2 className="course-card-title">{course.title}</h2>
                   <p className="course-card-desc">
                     {course.description}
                   </p>
@@ -152,7 +149,7 @@ export default function HomePage() {
                     By {course.instructorName}
                   </Link>
                 </div>
-              </Link>
+              </div>
             ))
           )}
         </div>

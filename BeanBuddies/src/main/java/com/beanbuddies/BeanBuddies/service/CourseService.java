@@ -24,13 +24,25 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
-    
+
     // --- NOTIFICATION SERVICE ---
     private final NotificationService notificationService;
 
-    @Cacheable(value = "public_courses")
+    // @Cacheable(value = "public_courses")
+    @Transactional(readOnly = true)
     public List<Course> getAllCourses() {
         return courseRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(value = "public_courses")
+    public List<CourseResponseDto> getPublicCourses() {
+
+        List<Course> courses = courseRepository.findAll();
+
+        return courses.stream()
+                .map(CourseResponseDto::new) // DTO created inside transaction
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -38,20 +50,20 @@ public class CourseService {
     public Course getCourseById(Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
-        
-        course.getLessons().size(); 
+
+        course.getLessons().size();
         return course;
     }
 
     @Transactional
-    @CacheEvict(value = {"public_courses", "instructor_courses"}, allEntries = true) 
+    @CacheEvict(value = { "public_courses", "instructor_courses" }, allEntries = true)
     public Course createCourse(CourseCreateRequest request, User instructor) {
 
         Course newCourse = new Course();
         newCourse.setTitle(request.getTitle());
         newCourse.setDescription(request.getDescription());
         newCourse.setInstructor(instructor);
-        
+
         if (request.getPrice() != null) {
             newCourse.setPrice(request.getPrice());
         }
@@ -68,8 +80,7 @@ public class CourseService {
         // Notun course create hole sobai notification pabe
         try {
             notificationService.sendPublicNotification(
-                "📢 New Course Alert: '" + newCourse.getTitle() + "' by " + instructor.getUsername()
-            );
+                    "📢 New Course Alert: '" + newCourse.getTitle() + "' by " + instructor.getUsername());
         } catch (Exception e) {
             System.err.println("Global notification failed: " + e.getMessage());
         }
@@ -78,11 +89,11 @@ public class CourseService {
     }
 
     @Transactional
-    @CacheEvict(value = {"public_courses", "course_details", "instructor_courses"}, allEntries = true) 
+    @CacheEvict(value = { "public_courses", "course_details", "instructor_courses" }, allEntries = true)
     public void deleteCourse(Long courseId) {
         courseRepository.deleteById(courseId);
     }
-    
+
     @Transactional(readOnly = true)
     @Cacheable(value = "instructor_courses", key = "#username")
     public List<CourseResponseDto> getCoursesByInstructor(String username) {

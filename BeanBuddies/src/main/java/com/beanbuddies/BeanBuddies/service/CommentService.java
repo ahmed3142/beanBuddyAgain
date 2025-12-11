@@ -94,7 +94,7 @@ public class CommentService {
         User instructor = lesson.getCourse().getInstructor();
         if (instructor != null && !instructor.getId().equals(author.getId())) {
             try {
-                notificationService.sendLessonNotification(
+                notificationService.sendCourseNotification(
                         instructor.getUsername(),
                         "💬 New comment on lesson '" + lesson.getTitle() + "': " + truncate(request.getContent()),
                         String.valueOf(lesson.getCourse().getId())
